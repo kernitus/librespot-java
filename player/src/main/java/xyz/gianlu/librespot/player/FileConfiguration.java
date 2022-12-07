@@ -346,6 +346,7 @@ public final class FileConfiguration {
         return new ShellEvents.Configuration.Builder()
                 .setEnabled(config.get("shell.enabled"))
                 .setExecuteWithBash(config.get("shell.executeWithBash"))
+                .setOnEvent(config.get("shell.onEvent"))
                 .setOnContextChanged(config.get("shell.onContextChanged"))
                 .setOnTrackChanged(config.get("shell.onTrackChanged"))
                 .setOnPlaybackEnded(config.get("shell.onPlaybackEnded"))

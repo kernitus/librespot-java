@@ -26,6 +26,7 @@ import xyz.gianlu.librespot.core.Session;
 import xyz.gianlu.librespot.metadata.PlayableId;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * @author devgianlu
@@ -40,13 +41,24 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
         this.conf = conf;
     }
 
-    private void exec(String command, String... envp) {
+    private void onEvent(String eventName, String command, String... envp) {
         if (!this.conf.enabled)
             return;
+
+        final String onEventCommand = conf.onEvent;
+        if (onEventCommand != null && !onEventCommand.trim().isEmpty()) {
+            final String[] variables = Arrays.copyOf(envp, envp.length + 1);
+            variables[envp.length] = "PLAYER_EVENT=" + eventName;
+            runProcess(conf.onEvent, variables);
+        }
 
         if (command == null || command.trim().isEmpty())
             return;
 
+        runProcess(command, envp);
+    }
+
+    private void runProcess(String command, String... envp) {
         try {
             Process p;
             if (conf.executeWithBash) p = runtime.exec(new String[]{"/bin/bash", "-c", command.trim()}, envp);
@@ -60,12 +72,13 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
     @Override
     public void onContextChanged(@NotNull Player player, @NotNull String newUri) {
-        exec(conf.onContextChanged, "CONTEXT_URI=" + newUri);
+        onEvent("context_changed", conf.onContextChanged, "CONTEXT_URI=" + newUri);
     }
 
     @Override
     public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata, boolean userInitiated) {
-        exec(conf.onTrackChanged, "TRACK_URI=" + id.toSpotifyUri(),
+        onEvent("track_changed", conf.onTrackChanged,
+                "TRACK_URI=" + id.toSpotifyUri(),
                 "NAME=" + (metadata == null ? "" : metadata.getName()),
                 "ARTIST=" + (metadata == null ? "" : metadata.getArtist()),
                 "ALBUM=" + (metadata == null ? "" : metadata.getAlbumName()),
@@ -75,32 +88,32 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
     @Override
     public void onPlaybackEnded(@NotNull Player player) {
-        exec(conf.onPlaybackEnded);
+        onEvent("playback_ended", conf.onPlaybackEnded);
     }
 
     @Override
     public void onPlaybackPaused(@NotNull Player player, long trackTime) {
-        exec(conf.onPlaybackPaused, "POSITION=" + trackTime);
+        onEvent("playback_paused", conf.onPlaybackPaused, "POSITION=" + trackTime);
     }
 
     @Override
     public void onPlaybackResumed(@NotNull Player player, long trackTime) {
-        exec(conf.onPlaybackResumed, "POSITION=" + trackTime);
+        onEvent("playback_resumed", conf.onPlaybackResumed, "POSITION=" + trackTime);
     }
 
     @Override
     public void onPlaybackFailed(@NotNull Player player, @NotNull Exception e) {
-        exec(conf.onPlaybackFailed, "EXCEPTION=" + e.getClass().getCanonicalName(), "MESSAGE=" + e.getMessage());
+        onEvent("playback_failed", conf.onPlaybackFailed, "EXCEPTION=" + e.getClass().getCanonicalName(), "MESSAGE=" + e.getMessage());
     }
 
     @Override
     public void onTrackSeeked(@NotNull Player player, long trackTime) {
-        exec(conf.onTrackSeeked, "POSITION=" + trackTime);
+        onEvent("track_seeked", conf.onTrackSeeked, "POSITION=" + trackTime);
     }
 
     @Override
     public void onMetadataAvailable(@NotNull Player player, @NotNull MetadataWrapper metadata) {
-        exec(conf.onMetadataAvailable, "TRACK_URI=" + metadata.id.toSpotifyUri(),
+        onEvent("metadata_available", conf.onMetadataAvailable, "TRACK_URI=" + metadata.id.toSpotifyUri(),
                 "NAME=" + metadata.getName(), "ARTIST=" + metadata.getArtist(),
                 "ALBUM=" + metadata.getAlbumName(), "DURATION=" + metadata.duration());
     }
@@ -111,42 +124,43 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
     @Override
     public void onInactiveSession(@NotNull Player player, boolean timeout) {
-        exec(conf.onInactiveSession);
+        onEvent("inactive_session", conf.onInactiveSession);
     }
 
     @Override
     public void onVolumeChanged(@NotNull Player player, @Range(from = 0, to = 1) float volume) {
-        exec(conf.onVolumeChanged, "VOLUME=" + Math.round(volume * 100f));
+        onEvent("volume_changed", conf.onVolumeChanged, "VOLUME=" + Math.round(volume * 100f));
     }
 
     @Override
     public void onPanicState(@NotNull Player player) {
-        exec(conf.onPanicState);
+        onEvent("panic_state", conf.onPanicState);
     }
 
     @Override
     public void onStartedLoading(@NotNull Player player) {
-        exec(conf.onStartedLoading);
+        onEvent("started_loading", conf.onStartedLoading);
     }
 
     @Override
     public void onFinishedLoading(@NotNull Player player) {
-        exec(conf.onFinishedLoading);
+        onEvent("finished_loading", conf.onFinishedLoading);
     }
 
     @Override
     public void onConnectionDropped() {
-        exec(conf.onConnectionDropped);
+        onEvent("connection_dropped", conf.onConnectionDropped);
     }
 
     @Override
     public void onConnectionEstablished() {
-        exec(conf.onConnectionEstablished);
+        onEvent("connection_established", conf.onConnectionEstablished);
     }
 
     public static class Configuration {
         public final boolean enabled;
         public final boolean executeWithBash;
+        public final String onEvent;
         public final String onContextChanged;
         public final String onTrackChanged;
         public final String onPlaybackEnded;
@@ -163,12 +177,13 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
         public final String onStartedLoading;
         public final String onFinishedLoading;
 
-        public Configuration(boolean enabled, boolean executeWithBash, String onContextChanged, String onTrackChanged, String onPlaybackEnded, String onPlaybackPaused,
+        public Configuration(boolean enabled, boolean executeWithBash, String onEvent, String onContextChanged, String onTrackChanged, String onPlaybackEnded, String onPlaybackPaused,
                              String onPlaybackResumed, String onPlaybackFailed, String onTrackSeeked, String onMetadataAvailable, String onVolumeChanged,
                              String onInactiveSession, String onPanicState, String onConnectionDropped, String onConnectionEstablished,
                              String onStartedLoading, String onFinishedLoading) {
             this.enabled = enabled;
             this.executeWithBash = executeWithBash;
+            this.onEvent = onEvent;
             this.onContextChanged = onContextChanged;
             this.onTrackChanged = onTrackChanged;
             this.onPlaybackEnded = onPlaybackEnded;
@@ -189,6 +204,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
         public static class Builder {
             private boolean enabled = false;
             private boolean executeWithBash = false;
+            private String onEvent = "";
             private String onContextChanged = "";
             private String onTrackChanged = "";
             private String onPlaybackEnded = "";
@@ -215,6 +231,11 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
             public Builder setExecuteWithBash(boolean executeWithBash) {
                 this.executeWithBash = executeWithBash;
+                return this;
+            }
+
+            public Builder setOnEvent(String command) {
+                this.onEvent = command;
                 return this;
             }
 
@@ -295,7 +316,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
 
             @NotNull
             public Configuration build() {
-                return new Configuration(enabled, executeWithBash, onContextChanged, onTrackChanged, onPlaybackEnded, onPlaybackPaused, onPlaybackResumed,
+                return new Configuration(enabled, executeWithBash, onEvent, onContextChanged, onTrackChanged, onPlaybackEnded, onPlaybackPaused, onPlaybackResumed,
                         onPlaybackFailed, onTrackSeeked, onMetadataAvailable, onVolumeChanged, onInactiveSession, onPanicState, onConnectionDropped, onConnectionEstablished,
                         onStartedLoading, onFinishedLoading);
             }
