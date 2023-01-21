@@ -34,11 +34,22 @@ public final class SocketOutput implements SinkOutput {
             server.createContext("/", httpExchange -> {
                 LOGGER.info("Got a " + httpExchange.getRequestMethod() + " request");
                 httpExchange.getRequestHeaders().forEach((h, l) -> LOGGER.info("Header: " + h + " value: " + l));
+                int response = 200;
+                if(httpExchange.getRequestHeaders().containsKey("Range")){
+                    final String rangeString = httpExchange.getRequestHeaders().getFirst("Range");
+                    final String[] rangeValues = rangeString.replace("bytes=", "").split("-");
+                    //if(rangeValues.length > 1)
+                    response = 206;
+                    // TODO sometimes it does ask for valid range, but we're streaming, so send back pretending it worked
+                    httpExchange.getResponseHeaders().add("Content-Range", "bytes " + rangeString + "/*"); // * because we don't know full size
+
+                }
+                // Range value: [bytes=0-]
 
                 // TODO seek through file based on Range header with getRequestHeaders()
                 httpExchange.getResponseHeaders().add("Content-Type", "audio/wav");
                 httpExchange.getResponseHeaders().add("Accept-Ranges", "bytes");
-                httpExchange.sendResponseHeaders(200, 0); // Length 0 means chunked transfer, we keep going until output stream is closed
+                httpExchange.sendResponseHeaders(response, 0); // Length 0 means chunked transfer, we keep going until output stream is closed
 
                 LOGGER.info("Sent response headers");
 
@@ -75,7 +86,7 @@ public final class SocketOutput implements SinkOutput {
         }
         stream.write(buffer, offset, len);
         try {
-            Thread.sleep(10);
+            Thread.sleep(22);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
