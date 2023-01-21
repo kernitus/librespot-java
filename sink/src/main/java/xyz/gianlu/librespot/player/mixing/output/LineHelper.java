@@ -56,6 +56,9 @@ final class LineHelper {
             Mixer mixer = AudioSystem.getMixer(mixerInfo);
             if (mixer.isLineSupported(info))
                 mixers.add(mixer);
+            else {
+                LOGGER.error("Mixer not supported: " + mixer.getMixerInfo() + " line: " + mixer.getLineInfo());
+            }
         }
 
         if (mixers.isEmpty())

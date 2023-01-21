@@ -52,6 +52,7 @@ public final class MixerOutput implements SinkOutput {
             if (line != null) line.close();
 
             try {
+                LOGGER.error("Opening line in format " + format);
                 line = LineHelper.getLineFor(mixerSearchKeywords, logAvailableMixers, format);
                 line.open(format);
             } catch (LineUnavailableException | LineHelper.MixerException ex) {

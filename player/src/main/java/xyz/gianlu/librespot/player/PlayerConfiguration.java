@@ -76,7 +76,7 @@ public final class PlayerConfiguration {
     }
 
     public enum AudioOutput {
-        MIXER, PIPE, STDOUT, CUSTOM
+        MIXER, PIPE, STDOUT, WAVE, UDP, TCP, CUSTOM
     }
 
     public final static class Builder {

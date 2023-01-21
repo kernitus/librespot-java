@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 
 /**
  * @author devgianlu
@@ -31,7 +30,7 @@ import java.io.OutputStream;
 public final class PipeOutput implements SinkOutput {
     private static final Logger LOGGER = LoggerFactory.getLogger(PipeOutput.class);
     private final File file;
-    private OutputStream stream;
+    private FileOutputStream stream;
 
     public PipeOutput(@NotNull File file) {
         this.file = file;
@@ -59,7 +58,12 @@ public final class PipeOutput implements SinkOutput {
             stream = new FileOutputStream(file);
         }
 
-        stream.write(buffer, 0, len);
+        stream.write(buffer, offset, len);
+        //try {
+        //    Thread.sleep(1);
+        //} catch(InterruptedException e){
+        //    LOGGER.error("Could not sleep for 100ms!");
+        //}
     }
 
     @Override
