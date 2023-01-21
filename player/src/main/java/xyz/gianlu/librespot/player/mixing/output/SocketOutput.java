@@ -35,22 +35,25 @@ public final class SocketOutput implements SinkOutput {
                 LOGGER.info("Got a " + httpExchange.getRequestMethod() + " request");
                 httpExchange.getRequestHeaders().forEach((h, l) -> LOGGER.info("Header: " + h + " value: " + l));
                 int response = 200;
-                if(httpExchange.getRequestHeaders().containsKey("Range")){
+                if (httpExchange.getRequestHeaders().containsKey("Range")) {
                     final String rangeString = httpExchange.getRequestHeaders().getFirst("Range");
-                    final String[] rangeValues = rangeString.replace("bytes=", "").split("-");
-                    //if(rangeValues.length > 1)
                     response = 206;
-                    // TODO sometimes it does ask for valid range, but we're streaming, so send back pretending it worked
-                    httpExchange.getResponseHeaders().add("Content-Range", "bytes " + rangeString + "/*"); // * because we don't know full size
-
+                    // Sometimes it does ask for valid range, but we're streaming, so send back pretending it worked
+                    // Asterisk means we don't know full size
+                    httpExchange.getResponseHeaders().add("Content-Range", "bytes " + rangeString + "/*");
                 }
-                // Range value: [bytes=0-]
 
-                // TODO seek through file based on Range header with getRequestHeaders()
                 httpExchange.getResponseHeaders().add("Content-Type", "audio/wav");
                 httpExchange.getResponseHeaders().add("Accept-Ranges", "bytes");
-                httpExchange.sendResponseHeaders(response, 0); // Length 0 means chunked transfer, we keep going until output stream is closed
 
+                // No response body should be returned if it's a HEAD request
+                if (httpExchange.getRequestMethod().equals("HEAD")) {
+                    httpExchange.sendResponseHeaders(response, -1);
+                    return;
+                }
+
+                // Length 0 means chunked transfer, we keep going until output stream is closed
+                httpExchange.sendResponseHeaders(response, 0);
                 LOGGER.info("Sent response headers");
 
                 stream = httpExchange.getResponseBody();
@@ -58,7 +61,6 @@ public final class SocketOutput implements SinkOutput {
                 WavFile.writeHeader(stream, format.getChannels(), format.getSampleSizeInBits(), (long) format.getSampleRate());
                 LOGGER.info("Wrote WAV header");
                 wroteHeader.set(true);
-
             });
 
             server.start();
@@ -75,15 +77,17 @@ public final class SocketOutput implements SinkOutput {
 
     @Override
     public void write(byte[] buffer, int offset, int len) throws IOException {
-        // Write to body stream that was opened in start()
-        while(!wroteHeader.get()){
+        // Block until we have written the header
+        // TODO see if we can get rid of the busy waiting
+        while (!wroteHeader.get()) {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            // Block until stream is open
         }
+
+        // Write to body stream that was opened in start()
         stream.write(buffer, offset, len);
         try {
             Thread.sleep(22);

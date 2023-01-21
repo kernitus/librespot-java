@@ -16,6 +16,7 @@
 
 package xyz.gianlu.librespot.player;
 
+import com.spotify.metadata.Metadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Range;
@@ -23,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.audio.MetadataWrapper;
 import xyz.gianlu.librespot.core.Session;
+import xyz.gianlu.librespot.metadata.ImageId;
 import xyz.gianlu.librespot.metadata.PlayableId;
 
 import java.io.IOException;
@@ -75,6 +77,12 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
         onEvent("context_changed", conf.onContextChanged, "CONTEXT_URI=" + newUri);
     }
 
+    private String extractCoverImageUrl(@NotNull MetadataWrapper metadata){
+        final Metadata.ImageGroup imageGroup = metadata.getCoverImage();
+        if(imageGroup == null) return "";
+        return "https://i.scdn.co/image/{file_id}".replace("{file_id}", ImageId.biggestImage(imageGroup).hexId());
+    }
+
     @Override
     public void onTrackChanged(@NotNull Player player, @NotNull PlayableId id, @Nullable MetadataWrapper metadata, boolean userInitiated) {
         onEvent("track_changed", conf.onTrackChanged,
@@ -83,6 +91,7 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
                 "ARTIST=" + (metadata == null ? "" : metadata.getArtist()),
                 "ALBUM=" + (metadata == null ? "" : metadata.getAlbumName()),
                 "DURATION=" + (metadata == null ? "" : metadata.duration()),
+                "COVER_IMAGE=" + (metadata == null ? "" : extractCoverImageUrl(metadata)),
                 "IS_USER=" + userInitiated);
     }
 
@@ -114,8 +123,11 @@ public final class ShellEvents implements Player.EventsListener, Session.Reconne
     @Override
     public void onMetadataAvailable(@NotNull Player player, @NotNull MetadataWrapper metadata) {
         onEvent("metadata_available", conf.onMetadataAvailable, "TRACK_URI=" + metadata.id.toSpotifyUri(),
-                "NAME=" + metadata.getName(), "ARTIST=" + metadata.getArtist(),
-                "ALBUM=" + metadata.getAlbumName(), "DURATION=" + metadata.duration());
+                "NAME=" + metadata.getName(),
+                "ARTIST=" + metadata.getArtist(),
+                "ALBUM=" + metadata.getAlbumName(),
+                "COVER_IMAGE=" + extractCoverImageUrl(metadata),
+                "DURATION=" + metadata.duration());
     }
 
     @Override
