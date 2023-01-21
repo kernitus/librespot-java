@@ -15,10 +15,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * @author kernitus
  */
-public final class SocketOutput implements SinkOutput {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SocketOutput.class);
-    private final int PORT = 50001;
-    private final String HOST = "127.0.0.1";
+public final class HttpOutput implements SinkOutput {
+    private static final Logger LOGGER = LoggerFactory.getLogger(HttpOutput.class);
+    private final int PORT = 50001; // TODO don't hardcode port
+    private final String HOST = "127.0.0.1"; // TODO don't hardcode host
     private OutputStream stream;
     HttpServer server;
     AtomicBoolean wroteHeader = new AtomicBoolean(false);

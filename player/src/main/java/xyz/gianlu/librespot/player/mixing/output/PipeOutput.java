@@ -59,11 +59,6 @@ public final class PipeOutput implements SinkOutput {
         }
 
         stream.write(buffer, offset, len);
-        //try {
-        //    Thread.sleep(1);
-        //} catch(InterruptedException e){
-        //    LOGGER.error("Could not sleep for 100ms!");
-        //}
     }
 
     @Override

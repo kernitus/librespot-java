@@ -57,17 +57,8 @@ public final class AudioSink implements Runnable, Closeable {
             case STDOUT:
                 output = new StreamOutput(System.out, false);
                 break;
-            case WAVE:
-                if (conf.outputPipe == null)
-                    throw new IllegalArgumentException("Pipe file not configured!");
-
-                output = new WaveOutput(conf.outputPipe);
-                break;
-            case UDP:
-                output = new UdpOutput();
-                break;
-            case TCP:
-                output = new SocketOutput();
+            case HTTP:
+                output = new HttpOutput();
                 break;
             case CUSTOM:
                 if (conf.outputClass == null || conf.outputClass.isEmpty())
