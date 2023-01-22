@@ -25,6 +25,10 @@ public final class HttpOutput implements SinkOutput {
 
     @Override
     public boolean start(@NotNull OutputAudioFormat format) throws SinkException {
+        if(server != null){
+            LOGGER.info("Server is not null, not recreating one!");
+            return true;
+        }
         try {
             // Create server only allowing one connection at a time
             server = HttpServer.create(new InetSocketAddress(HOST, PORT), 0);
@@ -86,14 +90,19 @@ public final class HttpOutput implements SinkOutput {
                 throw new RuntimeException(e);
             }
         }
+        // when on inactive session:
+        // ERROR <general>: CCurlFile::FillBuffer - Failed: Timeout was reached(28)
 
-        // Write to body stream that was opened in start()
-        stream.write(buffer, offset, len);
         try {
+            // This is around ~23 that with 4096 byte buffer is slightly faster than s16le 44100 2 channel playback data rate
+            // Necessary otherwise we buffer too much into HTTP stream and pausing / skipping no longer match up
             Thread.sleep(22);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+
+        // Write to body stream that was opened in start()
+        stream.write(buffer, offset, len);
     }
 
     @Override
@@ -101,5 +110,6 @@ public final class HttpOutput implements SinkOutput {
         // TODO might have to close() httpexchange or consume requestbody
         stream.close();
         server.stop(0);
+        server = null;
     }
 }
