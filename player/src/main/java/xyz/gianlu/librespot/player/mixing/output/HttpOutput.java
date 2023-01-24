@@ -10,7 +10,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /**
  * @author kernitus
@@ -20,8 +21,8 @@ public final class HttpOutput implements SinkOutput {
     private final int PORT = 50001; // TODO don't hardcode port
     private final String HOST = "127.0.0.1"; // TODO don't hardcode host
     private OutputStream stream;
+    private CompletableFuture<Boolean> headerWritten;
     HttpServer server;
-    AtomicBoolean wroteHeader = new AtomicBoolean(false);
 
     @Override
     public boolean start(@NotNull OutputAudioFormat format) throws SinkException {
@@ -29,6 +30,7 @@ public final class HttpOutput implements SinkOutput {
             LOGGER.info("Server is not null, not recreating one!");
             return true;
         }
+        headerWritten = new CompletableFuture<>();
         try {
             // Create server only allowing one connection at a time
             server = HttpServer.create(new InetSocketAddress(HOST, PORT), 0);
@@ -64,16 +66,19 @@ public final class HttpOutput implements SinkOutput {
                 LOGGER.info("Opened response body");
                 WavFile.writeHeader(stream, format.getChannels(), format.getSampleSizeInBits(), (long) format.getSampleRate());
                 LOGGER.info("Wrote WAV header");
-                wroteHeader.set(true);
+                // Let the write method proceed
+                headerWritten.complete(true);
+                LOGGER.info("Released lock");
             });
 
             server.start();
 
         } catch (UnknownHostException e) {
-            LOGGER.error("Don't know about host " + HOST);
+            LOGGER.error("Unknown host " + HOST);
+            headerWritten.complete(false);
         } catch (IOException e) {
             LOGGER.error("Couldn't get I/O for the connection to " + HOST);
-            e.printStackTrace();
+            headerWritten.complete(false);
         }
 
         return true;
@@ -82,14 +87,13 @@ public final class HttpOutput implements SinkOutput {
     @Override
     public void write(byte[] buffer, int offset, int len) throws IOException {
         // Block until we have written the header
-        // TODO see if we can get rid of the busy waiting
-        while (!wroteHeader.get()) {
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+        try {
+            if(!headerWritten.get()) return;
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error("Failed to acquire audio output write lock");
+            throw new RuntimeException(e);
         }
+
         // when on inactive session:
         // ERROR <general>: CCurlFile::FillBuffer - Failed: Timeout was reached(28)
 
@@ -111,5 +115,6 @@ public final class HttpOutput implements SinkOutput {
         stream.close();
         server.stop(0);
         server = null;
+        headerWritten = null;
     }
 }
