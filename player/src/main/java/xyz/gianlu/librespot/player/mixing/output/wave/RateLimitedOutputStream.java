@@ -7,21 +7,31 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RateLimitedOutputStream extends BufferedOutputStream {
     // e.g. 44100 sample rate, 16 bits per sample, 2 channels is 44100 * 16 * 2 = 1411200 b/s = 176400 B/s = 176.4 B/ms
     private static final Logger LOGGER = LoggerFactory.getLogger(RateLimitedOutputStream.class);
-    private final long bytesPerMillisecond;
-    private long startTime;
-    private long totalBytesWritten;
+    private final int bytesPerMillisecond;
+    private final AtomicInteger tokens = new AtomicInteger(0);
     private final OutputStream stream;
+    private final Timer tokenThread;
 
-    public RateLimitedOutputStream(OutputStream stream, long bytesPerSecond) {
-        super(stream);
+    public RateLimitedOutputStream(OutputStream stream, int bytesPerSecond) {
+        super(stream, bytesPerSecond / 100); // TODO might want to specify size of underlying buffer
         this.stream = stream;
-        this.bytesPerMillisecond = bytesPerSecond * 1000;
-        startTime = System.currentTimeMillis();
-        totalBytesWritten = 0;
+        this.bytesPerMillisecond = bytesPerSecond / 1000;
+        tokenThread = new Timer();
+        tokenThread.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                final int newValue = tokens.accumulateAndGet(bytesPerSecond / 100, Integer::sum);
+                LOGGER.debug("New token value: " + newValue);
+            }
+        }, 0L, 10L);
+        // consider scheduleAtFixedRate which keeps the rate constant over time
     }
 
     @Override
@@ -31,36 +41,34 @@ public class RateLimitedOutputStream extends BufferedOutputStream {
 
     @Override
     public void write(byte @NotNull [] bytes, int offset, int length) throws IOException {
-        // Calculate the max amount of bytes we could have written
-        final long currentTime = System.currentTimeMillis();
-        final long elapsedTime = currentTime - startTime;
-        final long maxWrittenBytes = elapsedTime * bytesPerMillisecond;
+        int currentOffset = offset;
+        while (currentOffset < length) {
+            final int budget = tokens.get();
+            final int toWrite = Math.min(length - currentOffset, budget);
+            LOGGER.debug("Tokens: " + budget);
+            LOGGER.debug("Writing " + toWrite + " bytes");
+            stream.write(bytes, currentOffset, toWrite);
+            stream.flush();
+            tokens.accumulateAndGet(toWrite, (a, b) -> a - b);
+            currentOffset += toWrite;
 
-        // TODO deal with the totalBytesWritten overflowing
-        // TODO deal with underfilling of the buffer - if we write too slowly playback will skip
-
-        // Write first few bytes
-        final long byteBudget = Math.max(0, (maxWrittenBytes - totalBytesWritten));
-        final int toWrite = (int) Math.min(length, byteBudget);
-        stream.write(bytes, offset, toWrite);
-        totalBytesWritten += toWrite;
-        startTime = currentTime;
-
-        if (length > byteBudget) {
-            // Wait to write the rest
-            final int remainingBytes = length - (int) byteBudget;
-            LOGGER.debug("Remaining bytes: " + remainingBytes + " length: " + length + " budget:" + byteBudget);
-            final long msToWait = remainingBytes / bytesPerMillisecond;
-            if(msToWait > 0) {
+            // Wait to write the rest of the bytes
+            final int remainingBytes = length - currentOffset;
+            if(remainingBytes > 0) {
+                final long msToWait = remainingBytes / bytesPerMillisecond;
+                LOGGER.debug("Waiting " + msToWait + " to write remaining " + remainingBytes);
                 try {
-                    LOGGER.debug("Waiting " + msToWait + " to write remaining " + remainingBytes);
                     Thread.sleep(msToWait);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
             }
-            // Call function again with remaining of array
-            write(bytes, toWrite, remainingBytes);
         }
+    }
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+        tokenThread.cancel();
     }
 }

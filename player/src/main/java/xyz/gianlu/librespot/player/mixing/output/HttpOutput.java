@@ -66,7 +66,7 @@ public final class HttpOutput implements SinkOutput {
                 final int byteRate = (int) (format.getChannels() * format.getSampleSizeInBits() * format.getSampleRate() / 8);
                 LOGGER.info("Byte rate: " + byteRate);
                 stream = new RateLimitedOutputStream(httpExchange.getResponseBody(), byteRate);
-                //stream = httpExchange.getResponseBody();
+                //stream = new BufferedOutputStream(httpExchange.getResponseBody(), 4200); // 176400/4200 = 42
                 LOGGER.info("Opened response body");
                 WavFile.writeHeader(stream, format.getChannels(), format.getSampleSizeInBits(), (long) format.getSampleRate());
                 LOGGER.info("Wrote WAV header");
@@ -103,6 +103,7 @@ public final class HttpOutput implements SinkOutput {
         // TODO find better way to sync playback
         // as the playing keeps going, kodi falls behind what spotify reports as the playback
         // is librespot's calculations for playback tied to how quickly we write out of the buffer?
+        /*
         try {
             // This is around ~23 that with 4096 byte buffer is slightly faster than s16le 44100 2 channel playback data rate
             // Necessary otherwise we buffer too much into HTTP stream and pausing / skipping no longer match up
@@ -110,6 +111,7 @@ public final class HttpOutput implements SinkOutput {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+         */
     }
 
     @Override
