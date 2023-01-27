@@ -27,7 +27,7 @@ public final class HttpOutput implements SinkOutput {
 
     @Override
     public boolean start(@NotNull OutputAudioFormat format) throws SinkException {
-        if(server != null){
+        if (server != null) {
             LOGGER.info("Server is not null, not recreating one!");
             return true;
         }
@@ -42,8 +42,13 @@ public final class HttpOutput implements SinkOutput {
                 LOGGER.info("Got a " + httpExchange.getRequestMethod() + " request");
                 httpExchange.getRequestHeaders().forEach((h, l) -> LOGGER.info("Header: " + h + " value: " + l));
                 int response = 200;
+                boolean ranged = false;
+                // TODO Technically we could keep writing up to a certain range of bytes then close the connection
+                // Kodi/browser would then open up another connection asking for the remaining bytes
+                // We could exploit this to write in small chunks as requested and stop as needed
                 if (httpExchange.getRequestHeaders().containsKey("Range")) {
                     final String rangeString = httpExchange.getRequestHeaders().getFirst("Range");
+                    ranged = true;
                     response = 206;
                     // Sometimes it does ask for valid range, but we're streaming, so send back pretending it worked
                     // Asterisk means we don't know full size
@@ -68,8 +73,10 @@ public final class HttpOutput implements SinkOutput {
                 stream = new RateLimitedOutputStream(httpExchange.getResponseBody(), byteRate);
                 //stream = new BufferedOutputStream(httpExchange.getResponseBody(), 4200); // 176400/4200 = 42
                 LOGGER.info("Opened response body");
-                WavFile.writeHeader(stream, format.getChannels(), format.getSampleSizeInBits(), (long) format.getSampleRate());
-                LOGGER.info("Wrote WAV header");
+                if (!ranged) {
+                    WavFile.writeHeader(stream, format.getChannels(), format.getSampleSizeInBits(), (long) format.getSampleRate());
+                    LOGGER.info("Wrote WAV header");
+                }
                 // Let the write method proceed
                 headerWritten.complete(true);
             });
@@ -91,7 +98,7 @@ public final class HttpOutput implements SinkOutput {
     public void write(byte[] buffer, int offset, int len) throws IOException {
         // Block until we have written the header
         try {
-            if(!headerWritten.get()) return;
+            if (!headerWritten.get()) return;
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.error("Failed to acquire audio output write lock");
             throw new RuntimeException(e);
@@ -116,8 +123,8 @@ public final class HttpOutput implements SinkOutput {
 
     @Override
     public void close() throws IOException {
-        if(stream != null) stream.close();
-        if(server != null) server.stop(0);
+        if (stream != null) stream.close();
+        if (server != null) server.stop(0);
         server = null;
         headerWritten = null;
         LOGGER.info("HTTP stream has been closed");
