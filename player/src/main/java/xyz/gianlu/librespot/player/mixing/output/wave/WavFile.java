@@ -62,10 +62,11 @@ public class WavFile {
         //        dataChunkSize;
 
         // Set to maximum unsigned value to allow streaming the file
-        // TODO these are actually unsigned ints, so max file size will be 4GB
+        // the chunk size is supposed to be unsigned int in the spec, so -1 will be largest possible value
+        // so max file size will be 4GB
         // we may want to use 64bit headers to support huge files and not have it stop
-        long mainChunkSize = -1; // -8
-        long dataChunkSize = -44; // -44
+        long mainChunkSize = -1;
+        long dataChunkSize = -1;
 
         // Chunks must be word aligned, so if odd number of audio data bytes
         // adjust the main chunk size
@@ -88,7 +89,7 @@ public class WavFile {
         long averageBytesPerSecond = sampleRate * blockAlign;
 
         putLE(FMT_CHUNK_ID, buffer, 0, 4);        // Chunk ID
-        putLE(16, buffer, 4, 4);        // Chunk Data Size
+        putLE(16, buffer, 4, 4);        // Format chunk size
         putLE(1, buffer, 8, 2);        // Compression Code (Uncompressed)
         putLE(numChannels, buffer, 10, 2);        // Number of channels
         putLE(sampleRate, buffer, 12, 4);        // Sample Rate
@@ -105,9 +106,6 @@ public class WavFile {
 
         // Write Format Chunk
         outputStream.write(buffer, 0, 8);
-
-        // Make sure the header etc. is fully written before we try to write any actual data
-        outputStream.flush();
     }
 
     // Get and Put little endian data from local buffer

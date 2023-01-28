@@ -16,7 +16,7 @@ public class RateLimitedOutputStream extends OutputStream {
 
     public RateLimitedOutputStream(OutputStream stream, long bytesPerSecond) {
         this.stream = stream;
-        this.bytesPerMillisecond = bytesPerSecond / 1000F;
+        this.bytesPerMillisecond = ((double) bytesPerSecond) / 1000.0;
         startTime = System.currentTimeMillis();
         bytesWritten = 0;
     }
@@ -52,6 +52,8 @@ public class RateLimitedOutputStream extends OutputStream {
             // Wait to write the rest
             final int remainingBytes = length - (int) byteBudget;
             //LOGGER.debug("Remaining bytes: " + remainingBytes + " length: " + length + " budget:" + byteBudget);
+            // Round down to avoid buffer underfill
+            //final long msToWait = (long) Math.floor(remainingBytes / bytesPerMillisecond);
             final long msToWait = (long) (remainingBytes / bytesPerMillisecond);
             if(msToWait > 0) {
                 try {
@@ -62,8 +64,15 @@ public class RateLimitedOutputStream extends OutputStream {
                 }
             }
             //LOGGER.debug("Writing remaining " + remainingBytes + " bytes");
-            stream.write(bytes, toWrite, remainingBytes);
-            bytesWritten += remainingBytes;
+            // java.io.IOException: Connection reset by peer
+            try {
+                stream.write(bytes, toWrite, remainingBytes);
+                bytesWritten += remainingBytes;
+            } catch (IOException e){
+                LOGGER.error("Error writing to stream", e);
+                // Connection was probably closed by consumer
+                // Probably waited too long and exceeded timeout (28)
+            }
         }
     }
 }
