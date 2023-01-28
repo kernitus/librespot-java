@@ -42,13 +42,14 @@ public final class HttpOutput implements SinkOutput {
                 LOGGER.info("Got a " + httpExchange.getRequestMethod() + " request");
                 httpExchange.getRequestHeaders().forEach((h, l) -> LOGGER.info("Header: " + h + " value: " + l));
                 int response = 200;
-                boolean ranged = false;
+                boolean sendWaveHeader = true;
                 // TODO Technically we could keep writing up to a certain range of bytes then close the connection
                 // Kodi/browser would then open up another connection asking for the remaining bytes
                 // We could exploit this to write in small chunks as requested and stop as needed
                 if (httpExchange.getRequestHeaders().containsKey("Range")) {
                     final String rangeString = httpExchange.getRequestHeaders().getFirst("Range");
-                    ranged = true;
+                    if (!rangeString.equals("bytes=0-")) sendWaveHeader = false;
+
                     response = 206;
                     // Sometimes it does ask for valid range, but we're streaming, so send back pretending it worked
                     // Asterisk means we don't know full size
@@ -73,7 +74,8 @@ public final class HttpOutput implements SinkOutput {
                 stream = new RateLimitedOutputStream(httpExchange.getResponseBody(), byteRate);
                 //stream = new BufferedOutputStream(httpExchange.getResponseBody(), 4200); // 176400/4200 = 42
                 LOGGER.info("Opened response body");
-                if (!ranged) {
+                if (sendWaveHeader) {
+                    //TODO we're already setting the content type to WAV, do we need to send the header too?
                     WavFile.writeHeader(stream, format.getChannels(), format.getSampleSizeInBits(), (long) format.getSampleRate());
                     LOGGER.info("Wrote WAV header");
                 }
