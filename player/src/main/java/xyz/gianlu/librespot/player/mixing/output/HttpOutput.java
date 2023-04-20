@@ -38,8 +38,6 @@ public final class HttpOutput implements SinkOutput {
 
         headerWritten = new CompletableFuture<>();
 
-        // TODO when playback stops, should indicate that there is no content anymore
-
         // Open HTTP stream and write out necessary headers
         server.createContext("/", httpExchange -> {
             // If header already written, make new future because we'll be writing it again
@@ -63,7 +61,8 @@ public final class HttpOutput implements SinkOutput {
                     if(rangeParts.length >= 2)
                         rangeEnd = Integer.parseInt(rangeParts[1]);
                     else
-                        rangeEnd = rangeStart + 999;  // Send in chunks of 999 bytes if not requested otherwise
+                        // Send in chunks of 999 bytes if not requested otherwise, Kodi doesn't seem to use this anyway
+                        rangeEnd = rangeStart + 999;
                 }
 
                 // Only send header at the start of a stream
@@ -79,7 +78,7 @@ public final class HttpOutput implements SinkOutput {
             // Can use audio/l16 but it's just white noise - because it should be big endian
             // L16 format https://www.rfc-editor.org/rfc/rfc3551#page-27
             // https://www.rfc-editor.org/rfc/rfc2586
-            // Kodi opens audio/l16 as pcms16be, but doesn't seem to need header
+            // Kodi opens audio/l16 as pcms16be, but doesn't need wav header
             //httpExchange.getResponseHeaders().add("Content-Type", "audio/l16;rate=44100;channels=2");
             httpExchange.getResponseHeaders().add("Content-Type", "audio/wav");
             httpExchange.getResponseHeaders().add("Accept-Ranges", "bytes");
@@ -97,7 +96,6 @@ public final class HttpOutput implements SinkOutput {
             }
 
             // Length 0 means chunked transfer, we keep going until output stream is closed
-            httpExchange.getResponseHeaders().forEach((rh, rhs) -> LOGGER.info("RH: " + rh + ": " + rhs.stream().reduce(String::concat)));
             httpExchange.sendResponseHeaders(response, 0);
             LOGGER.info("Sent response headers");
 
@@ -107,7 +105,7 @@ public final class HttpOutput implements SinkOutput {
             stream = new RateLimitedOutputStream(httpExchange.getResponseBody(), byteRate, frameSizeInBytes);
             //stream = new BufferedOutputStream(httpExchange.getResponseBody(), 4200); // 176400/4200 = 42
             LOGGER.info("Opened response body");
-            if (sendWaveHeader) {
+            if (sendWaveHeader && !headerWritten.getNow(false)) {
                 WavFile.writeHeader(stream, format.getChannels(), format.getSampleSizeInBits(), (long) format.getSampleRate());
                 LOGGER.info("Wrote WAV header");
             }
@@ -162,6 +160,15 @@ public final class HttpOutput implements SinkOutput {
     @Override
     public void stop() {
         // Stop is called when playback is paused
+        // Close output stream to terminate current connection
+        if (stream != null) {
+            try {
+                stream.close();
+                LOGGER.info("Closed output stream");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
         stopped = true;
         LOGGER.info("We paused");
     }
