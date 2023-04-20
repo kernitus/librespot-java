@@ -102,7 +102,7 @@ public final class HttpOutput implements SinkOutput {
             final int frameSizeInBytes = (format.getChannels() * format.getSampleSizeInBits()) / 8;
             final int byteRate = (int) (format.getChannels() * format.getSampleSizeInBits() * format.getSampleRate() / 8);
             LOGGER.info("Byte rate: " + byteRate);
-            stream = new RateLimitedOutputStream(httpExchange.getResponseBody(), byteRate, frameSizeInBytes);
+            stream = new RateLimitedOutputStream(httpExchange.getResponseBody(), byteRate);
             //stream = new BufferedOutputStream(httpExchange.getResponseBody(), 4200); // 176400/4200 = 42
             LOGGER.info("Opened response body");
             if (sendWaveHeader && !headerWritten.getNow(false)) {

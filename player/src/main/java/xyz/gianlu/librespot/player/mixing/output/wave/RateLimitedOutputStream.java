@@ -14,7 +14,7 @@ public class RateLimitedOutputStream extends OutputStream {
     private long startTime, bytesWritten;
     private final OutputStream stream;
 
-    public RateLimitedOutputStream(OutputStream stream, int bytesPerSecond, int frameSizeInBytes) {
+    public RateLimitedOutputStream(OutputStream stream, int bytesPerSecond) {
         this.stream = stream;
         this.bytesPerMillisecond = ((double) bytesPerSecond) / 1000.0;
         startTime = System.currentTimeMillis();
@@ -63,5 +63,10 @@ public class RateLimitedOutputStream extends OutputStream {
             stream.write(bytes, toWrite, remainingBytes);
             bytesWritten += remainingBytes;
         }
+    }
+
+    @Override
+    public void close() throws IOException {
+       stream.close();
     }
 }
