@@ -14,11 +14,11 @@ public class RateLimitedOutputStream extends OutputStream {
     private long startTime, bytesWritten;
     private final OutputStream stream;
 
-    public RateLimitedOutputStream(OutputStream stream, long bytesPerSecond) {
+    public RateLimitedOutputStream(OutputStream stream, int bytesPerSecond, int frameSizeInBytes) {
         this.stream = stream;
         this.bytesPerMillisecond = ((double) bytesPerSecond) / 1000.0;
         startTime = System.currentTimeMillis();
-        bytesWritten = 0;
+        bytesWritten = -44; // To account for header being 44 bytes
     }
 
     @Override
@@ -38,24 +38,20 @@ public class RateLimitedOutputStream extends OutputStream {
         final long elapsedTime = currentTime - startTime;
         final long maxWrittenBytes = (long) (elapsedTime * bytesPerMillisecond);
 
-        // TODO deal with underfilling of the buffer - if we write too slowly playback will skip
-
         // Write first few bytes
         final long byteBudget = Math.max(0, (maxWrittenBytes - bytesWritten));
         final int toWrite = (int) Math.min(length, byteBudget);
         //LOGGER.debug("Writing " + toWrite + " bytes");
         stream.write(bytes, offset, toWrite);
-        bytesWritten = toWrite;
-        startTime = currentTime;
+        // TODO deal with this variable overflowing
+        bytesWritten += toWrite;
 
         if (length > byteBudget) {
             // Wait to write the rest
             final int remainingBytes = length - (int) byteBudget;
             //LOGGER.debug("Remaining bytes: " + remainingBytes + " length: " + length + " budget:" + byteBudget);
-            // Round down to avoid buffer underfill
-            //final long msToWait = (long) Math.floor(remainingBytes / bytesPerMillisecond);
             final long msToWait = (long) (remainingBytes / bytesPerMillisecond);
-            if(msToWait > 0) {
+            if (msToWait > 0) {
                 try {
                     //LOGGER.debug("Waiting " + msToWait + " to write remaining " + remainingBytes);
                     Thread.sleep(msToWait);
@@ -64,15 +60,8 @@ public class RateLimitedOutputStream extends OutputStream {
                 }
             }
             //LOGGER.debug("Writing remaining " + remainingBytes + " bytes");
-            // java.io.IOException: Connection reset by peer
-            try {
-                stream.write(bytes, toWrite, remainingBytes);
-                bytesWritten += remainingBytes;
-            } catch (IOException e){
-                LOGGER.error("Error writing to stream", e);
-                // Connection was probably closed by consumer
-                // Probably waited too long and exceeded timeout (28)
-            }
+            stream.write(bytes, toWrite, remainingBytes);
+            bytesWritten += remainingBytes;
         }
     }
 }
