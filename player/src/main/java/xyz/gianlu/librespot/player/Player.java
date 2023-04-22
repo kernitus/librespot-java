@@ -656,6 +656,7 @@ public class Player implements Closeable {
         } else {
             playerSession.seekCurrent(0);
             state.setPosition(0);
+            events.seeked(0);
             state.updated();
         }
     }
