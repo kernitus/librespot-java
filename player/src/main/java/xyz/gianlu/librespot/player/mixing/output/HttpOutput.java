@@ -44,8 +44,9 @@ public final class HttpOutput implements SinkOutput {
             if (headerWritten.getNow(false))
                 headerWritten = new CompletableFuture<>();
 
-            LOGGER.info("Got a " + httpExchange.getRequestMethod() + " request");
-            if(!httpExchange.getRequestMethod().equals("GET")) return;
+            final String method = httpExchange.getRequestMethod();
+            LOGGER.info("Got a " + method + " request");
+            if(!method.equals("GET") && !method.equals("HEAD") ) return;
 
             httpExchange.getRequestHeaders().forEach((h, l) -> LOGGER.info("Header: " + h + " value: " + l));
             int response = 200;
