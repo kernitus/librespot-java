@@ -99,7 +99,6 @@ public final class HttpOutput implements SinkOutput {
             httpExchange.sendResponseHeaders(response, 0);
             LOGGER.info("Sent response headers");
 
-            final int frameSizeInBytes = (format.getChannels() * format.getSampleSizeInBits()) / 8;
             final int byteRate = (int) (format.getChannels() * format.getSampleSizeInBits() * format.getSampleRate() / 8);
             LOGGER.info("Byte rate: " + byteRate);
             stream = new RateLimitedOutputStream(httpExchange.getResponseBody(), byteRate);
@@ -169,6 +168,8 @@ public final class HttpOutput implements SinkOutput {
                 throw new RuntimeException(e);
             }
         }
+        // Stream is closed, so we will have to write header again
+        headerWritten = new CompletableFuture<>();
         stopped = true;
         LOGGER.info("We paused");
     }
