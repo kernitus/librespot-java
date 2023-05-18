@@ -145,7 +145,8 @@ public final class HttpOutput implements SinkOutput {
         try {
             stream.write(buffer);
         } catch (IOException e) {
-            LOGGER.info("Error writing to stream!");
+            LOGGER.warn("Error writing to stream!");
+            LOGGER.warn(e.getMessage());
             headerWritten = new CompletableFuture<>();
         }
     }
