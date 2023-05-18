@@ -21,7 +21,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>1.6.3-SNAPSHOT</version>
+        <version>1.6.4-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -34,13 +34,13 @@
             <extension>
                 <groupId>kr.motd.maven</groupId>
                 <artifactId>os-maven-plugin</artifactId>
-                <version>1.7.0</version>
+                <version>1.7.1</version>
             </extension>
         </extensions>
         <plugins>
             <plugin>
                 <artifactId>maven-clean-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.2.0</version>
                 <executions>
                     <execution>
                         <id>clean-generate-proto</id>
@@ -65,7 +65,7 @@
                 <artifactId>protobuf-maven-plugin</artifactId>
                 <version>0.6.1</version>
                 <configuration>
-                    <protocArtifact>com.google.protobuf:protoc:3.11.4:exe:${os.detected.classifier}</protocArtifact>
+                    <protocArtifact>com.google.protobuf:protoc:3.23.0:exe:${os.detected.classifier}</protocArtifact>
                     <outputDirectory>${basedir}/src/main/java</outputDirectory>
                     <clearOutputDirectory>false</clearOutputDirectory>
                 </configuration>
@@ -123,14 +123,14 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>4.9.3</version>
+            <version>4.10.0</version>
         </dependency>
 
         <!-- Commons Net (NTP) -->
         <dependency>
             <groupId>commons-net</groupId>
             <artifactId>commons-net</artifactId>
-            <version>3.8.0</version>
+            <version>3.9.0</version>
         </dependency>
 
         <!-- Logging -->

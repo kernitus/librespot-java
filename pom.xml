@@ -21,7 +21,7 @@
     <groupId>xyz.gianlu.librespot</groupId>
     <artifactId>librespot-java</artifactId>
     <packaging>pom</packaging>
-    <version>1.6.3-SNAPSHOT</version>
+    <version>1.6.4-SNAPSHOT</version>
 
     <name>librespot-java</name>
     <description>Java port of librespot, the Open Source Spotify client library</description>
@@ -53,10 +53,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <gson.version>2.9.0</gson.version>
-        <protobuf.version>3.19.4</protobuf.version>
-        <slf4j-api.version>1.7.36</slf4j-api.version>
-        <log4j.version>2.17.1</log4j.version>
+        <gson.version>2.10.1</gson.version>
+        <protobuf.version>3.23.0</protobuf.version>
+        <slf4j-api.version>2.0.7</slf4j-api.version>
+        <log4j.version>2.20.0</log4j.version>
         <lmax-disruptor.version>3.4.4</lmax-disruptor.version>
     </properties>
 
@@ -75,14 +75,14 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>23.0.0</version>
+            <version>24.0.1</version>
         </dependency>
 
         <!-- Unit tests -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.8.2</version>
+            <version>5.9.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -145,7 +145,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>3.3.2</version>
+                        <version>3.5.0</version>
                         <executions>
                             <execution>
                                 <id>attach-javadocs</id>
@@ -164,7 +164,7 @@
                     <plugin>
                         <groupId>org.sonatype.plugins</groupId>
                         <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.11</version>
+                        <version>1.6.13</version>
                         <extensions>true</extensions>
                         <configuration>
                             <serverId>ossrh</serverId>

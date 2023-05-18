@@ -21,7 +21,7 @@
     <parent>
         <groupId>xyz.gianlu.librespot</groupId>
         <artifactId>librespot-java</artifactId>
-        <version>1.6.3-SNAPSHOT</version>
+        <version>1.6.4-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -35,7 +35,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>3.5.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -118,8 +118,9 @@
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
             <version>${log4j.version}</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.lmax</groupId>
@@ -132,7 +133,7 @@
         <dependency>
             <groupId>com.electronwill.night-config</groupId>
             <artifactId>toml</artifactId>
-            <version>3.6.5</version>
+            <version>3.6.6</version>
         </dependency>
 
         <!-- Default sink -->
