@@ -82,7 +82,7 @@ public final class MixingLine extends InputStream {
     @NotNull
     public MixingOutput firstOut() {
         if (fout == null) {
-            fcb = new GainAwareCircularBuffer(Decoder.BUFFER_SIZE * 4);
+            fcb = new GainAwareCircularBuffer(Decoder.BUFFER_SIZE * 4, format);
             fout = new FirstOutputStream();
         }
 
@@ -92,7 +92,7 @@ public final class MixingLine extends InputStream {
     @NotNull
     public MixingOutput secondOut() {
         if (sout == null) {
-            scb = new GainAwareCircularBuffer(Decoder.BUFFER_SIZE * 4);
+            scb = new GainAwareCircularBuffer(Decoder.BUFFER_SIZE * 4, format);
             sout = new SecondOutputStream();
         }
 
