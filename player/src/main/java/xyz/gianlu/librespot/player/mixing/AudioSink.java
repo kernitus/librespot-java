@@ -32,7 +32,7 @@ import java.io.IOException;
 public final class AudioSink implements Runnable, Closeable {
     private final Object pauseLock = new Object();
     private final SinkOutput output;
-    private final MixingLine mixing = new MixingLine();
+    private final MixingLine mixing;
     private final Thread thread;
     private final Listener listener;
     private volatile boolean closed = false;
@@ -43,6 +43,7 @@ public final class AudioSink implements Runnable, Closeable {
      */
     public AudioSink(@NotNull PlayerConfiguration conf, @NotNull Listener listener) {
         this.listener = listener;
+        OutputAudioFormat format = OutputAudioFormat.DEFAULT_FORMAT;
         switch (conf.output) {
             case MIXER:
                 output = initCustomOutputSink("xyz.gianlu.librespot.player.mixing.output.MixerOutput",
@@ -58,6 +59,7 @@ public final class AudioSink implements Runnable, Closeable {
                 output = new StreamOutput(System.out, false);
                 break;
             case HTTP:
+                format = new OutputAudioFormat(44100, 16, 2, true, true);
                 output = new HttpOutput();
                 break;
             case CUSTOM:
@@ -71,6 +73,8 @@ public final class AudioSink implements Runnable, Closeable {
             default:
                 throw new IllegalArgumentException("Unknown output: " + conf.output);
         }
+
+        mixing = new MixingLine(format);
 
         if (conf.bypassSinkVolume) setVolume(Player.VOLUME_MAX);
         else setVolume(conf.initialVolume);

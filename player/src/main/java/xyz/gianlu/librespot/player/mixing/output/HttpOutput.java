@@ -54,7 +54,7 @@ public final class HttpOutput implements SinkOutput {
             // Kodi opens audio/l16 as pcms16be, but doesn't need wav header
             // L16 format https://www.rfc-editor.org/rfc/rfc3551#page-27
             // https://www.rfc-editor.org/rfc/rfc2586
-            httpExchange.getResponseHeaders().add("Content-Type", "audio/l16;rate=44100;channels=2"); // TODO pass actual rate & channels
+            httpExchange.getResponseHeaders().add("Content-Type", "audio/l16;rate=44100;channels=2");
             httpExchange.getResponseHeaders().add("Accept-Ranges", "none");
 
             // No response body should be returned if it's a HEAD request

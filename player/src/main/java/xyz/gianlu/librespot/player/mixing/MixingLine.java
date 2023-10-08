@@ -41,9 +41,10 @@ public final class MixingLine extends InputStream {
     private volatile float fg = 1;
     private volatile float sg = 1;
     private volatile float gg = 1;
-    private OutputAudioFormat format = OutputAudioFormat.DEFAULT_FORMAT;
+    private OutputAudioFormat format;
 
-    public MixingLine() {
+    public MixingLine(OutputAudioFormat format) {
+        this.format = format;
     }
 
     @Override
