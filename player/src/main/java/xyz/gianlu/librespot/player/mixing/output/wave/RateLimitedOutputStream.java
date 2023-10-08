@@ -18,7 +18,7 @@ public class RateLimitedOutputStream extends OutputStream {
         this.stream = stream;
         this.bytesPerMillisecond = ((double) bytesPerSecond) / 1000.0;
         startTime = System.currentTimeMillis();
-        bytesWritten = -44; // To account for header being 44 bytes
+        bytesWritten = 0;
     }
 
     @Override

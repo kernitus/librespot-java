@@ -5,7 +5,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import xyz.gianlu.librespot.player.mixing.output.wave.RateLimitedOutputStream;
-import xyz.gianlu.librespot.player.mixing.output.wave.WavFile;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -21,9 +20,9 @@ public final class HttpOutput implements SinkOutput {
     private final int PORT = 50001; // TODO don't hardcode port
     private final String HOST = "127.0.0.1"; // TODO don't hardcode host
     private OutputStream stream;
-    private CompletableFuture<Boolean> headerWritten;
+    private CompletableFuture<Boolean> playingStarted;
     private HttpServer server;
-    private OutputAudioFormat format = OutputAudioFormat.DEFAULT_FORMAT;
+    private OutputAudioFormat format = new OutputAudioFormat(44100, 16, 2, true, true);
     private boolean stopped = false;
 
     public HttpOutput() {
@@ -36,55 +35,27 @@ public final class HttpOutput implements SinkOutput {
         }
         LOGGER.info("Started HTTP server on " + HOST + ":" + PORT);
 
-        headerWritten = new CompletableFuture<>();
+        playingStarted = new CompletableFuture<>();
 
         // Open HTTP stream and write out necessary headers
         server.createContext("/", httpExchange -> {
-            // If header already written, make new future because we'll be writing it again
-            if (headerWritten.getNow(false))
-                headerWritten = new CompletableFuture<>();
 
             final String method = httpExchange.getRequestMethod();
             LOGGER.info("Got a " + method + " request");
             if(!method.equals("GET") && !method.equals("HEAD") ) return;
 
+            // If playback already started in a previous request reset the future
+            if (playingStarted.getNow(false) && method.equals("GET"))
+                playingStarted = new CompletableFuture<>();
+
             httpExchange.getRequestHeaders().forEach((h, l) -> LOGGER.info("Header: " + h + " value: " + l));
             int response = 200;
-            boolean sendWaveHeader = true;
 
-            if (httpExchange.getRequestHeaders().containsKey("Range")) {
-                final String rangeString = httpExchange.getRequestHeaders().getFirst("Range");
-                String[] rangeParts = rangeString.split("=");
-                final String rangeUnit = rangeParts.length >= 2 ? rangeParts[0] : "";
-                long rangeStart = 0, rangeEnd = 0;
-                if(rangeParts.length >= 2){
-                    rangeParts = rangeParts[1].split("-");
-                    if(rangeParts.length >= 1)
-                        rangeStart = Integer.parseInt(rangeParts[0]);
-                    if(rangeParts.length >= 2)
-                        rangeEnd = Integer.parseInt(rangeParts[1]);
-                    else
-                        // Send in chunks of 999 bytes if not requested otherwise, Kodi doesn't seem to use this anyway
-                        rangeEnd = rangeStart + 999;
-                }
-
-                // Only send header at the start of a stream
-                if (rangeStart != 0) sendWaveHeader = false;
-
-                response = 206;
-                // Sometimes it does ask for valid range, but we're streaming, so send back pretending it worked
-                // Asterisk means we don't know full size
-                // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Range
-                httpExchange.getResponseHeaders().add("Content-Range", rangeUnit + " " + rangeStart + "-" + rangeEnd + "/*");
-            }
-
-            // Can use audio/l16 but it's just white noise - because it should be big endian
+            // Kodi opens audio/l16 as pcms16be, but doesn't need wav header
             // L16 format https://www.rfc-editor.org/rfc/rfc3551#page-27
             // https://www.rfc-editor.org/rfc/rfc2586
-            // Kodi opens audio/l16 as pcms16be, but doesn't need wav header
-            //httpExchange.getResponseHeaders().add("Content-Type", "audio/l16;rate=44100;channels=2");
-            httpExchange.getResponseHeaders().add("Content-Type", "audio/wav");
-            httpExchange.getResponseHeaders().add("Accept-Ranges", "bytes");
+            httpExchange.getResponseHeaders().add("Content-Type", "audio/l16;rate=44100;channels=2"); // TODO pass actual rate & channels
+            httpExchange.getResponseHeaders().add("Accept-Ranges", "none");
 
             // No response body should be returned if it's a HEAD request
             if (httpExchange.getRequestMethod().equals("HEAD")) {
@@ -105,14 +76,9 @@ public final class HttpOutput implements SinkOutput {
             final int byteRate = (int) (format.getChannels() * format.getSampleSizeInBits() * format.getSampleRate() / 8);
             LOGGER.info("Byte rate: " + byteRate);
             stream = new RateLimitedOutputStream(httpExchange.getResponseBody(), byteRate);
-            //stream = new BufferedOutputStream(httpExchange.getResponseBody(), 4200); // 176400/4200 = 42
             LOGGER.info("Opened response body");
-            if (sendWaveHeader && !headerWritten.getNow(false)) {
-                WavFile.writeHeader(stream, format.getChannels(), format.getSampleSizeInBits(), (long) format.getSampleRate());
-                LOGGER.info("Wrote WAV header");
-            }
             // Let the write method proceed
-            headerWritten.complete(true);
+            playingStarted.complete(true);
         });
 
         server.start();
@@ -120,8 +86,8 @@ public final class HttpOutput implements SinkOutput {
 
     @Override
     public boolean start(@NotNull OutputAudioFormat format) throws SinkException {
-        // Everytime we start playback again, we must write the header
-        headerWritten = new CompletableFuture<>();
+        // Everytime we start playback again, reset the future
+        playingStarted = new CompletableFuture<>();
         this.format = format;
         stopped = false;
         return true;
@@ -129,9 +95,9 @@ public final class HttpOutput implements SinkOutput {
 
     @Override
     public void write(byte[] buffer, int offset, int len) throws IOException {
-        // Block until we have written the header
+        // Block until we have an output stream from the HTTP request
         try {
-            if (!headerWritten.get()) return;
+            if (!playingStarted.get()) return;
         } catch(InterruptedException e){
             LOGGER.info("Interrupted while waiting for header to be written");
         } catch (ExecutionException e) {
@@ -147,7 +113,7 @@ public final class HttpOutput implements SinkOutput {
         } catch (IOException e) {
             LOGGER.warn("Error writing to stream!");
             LOGGER.warn(e.getMessage());
-            headerWritten = new CompletableFuture<>();
+            playingStarted = new CompletableFuture<>();
         }
     }
 
@@ -156,7 +122,7 @@ public final class HttpOutput implements SinkOutput {
         if (stream != null) stream.close();
         //if (server != null) server.stop(0);
         //server = null;
-        headerWritten = null;
+        playingStarted = null;
         LOGGER.info("HTTP stream has been closed");
     }
 
@@ -173,7 +139,7 @@ public final class HttpOutput implements SinkOutput {
             }
         }
         // Stream is closed, so we will have to write header again
-        headerWritten = new CompletableFuture<>();
+        playingStarted = new CompletableFuture<>();
         stopped = true;
         LOGGER.info("We paused");
     }

@@ -26,16 +26,20 @@ public final class StreamConverter extends OutputStream {
     private final boolean monoToStereo;
     private final int sampleSizeFrom;
     private final int sampleSizeTo;
+    private final boolean swapByteOrder;
     private byte[] buffer;
+    private final int channelsTo;
 
     private StreamConverter(@NotNull OutputAudioFormat from, @NotNull OutputAudioFormat to) {
         monoToStereo = from.getChannels() == 1 && to.getChannels() == 2;
         sampleSizeFrom = from.getSampleSizeInBits();
         sampleSizeTo = to.getSampleSizeInBits();
+        swapByteOrder = from.isBigEndian() != to.isBigEndian();
+        channelsTo = to.getChannels();
     }
 
     public static boolean canConvert(@NotNull OutputAudioFormat from, @NotNull OutputAudioFormat to) {
-        if (from.isBigEndian() || to.isBigEndian()) return false;
+        if (from.isBigEndian() || to.isBigEndian()) return true;
 
         if (from.matches(to)) return true;
         if (from.getEncoding() != to.getEncoding()) return false;
@@ -103,9 +107,33 @@ public final class StreamConverter extends OutputStream {
         }
     }
 
+    private byte[] swapByteOrder(byte[] bytes, int sampleSizeInBytes, int channels) {
+        if (sampleSizeInBytes % 2 != 0 || channels % 2 != 0) {
+            throw new IllegalArgumentException("Sample size and channel count must be even.");
+        }
+
+        int subSampleSizeInBytes = sampleSizeInBytes / channels;
+        int numSubSamples = bytes.length / subSampleSizeInBytes;
+        byte[] swapped = new byte[bytes.length];
+
+        for (int i = 0; i < numSubSamples; i++) {
+            for (int j = 0; j < subSampleSizeInBytes; j++) {
+                swapped[i*subSampleSizeInBytes + j] = bytes[(i+1)*subSampleSizeInBytes - j - 1];
+            }
+        }
+
+        // Handle the remaining bytes
+        int remainingBytesStartIndex = numSubSamples * subSampleSizeInBytes;
+        for (int i = 0; i < bytes.length - remainingBytesStartIndex; i++) {
+            swapped[remainingBytesStartIndex + i] = bytes[bytes.length - 1 - i];
+        }
+
+        return swapped;
+    }
     public byte[] convert() {
         byte[] result = sampleSizeConversion(buffer, sampleSizeFrom, sampleSizeTo);
         if (monoToStereo) result = monoToStereo(result, sampleSizeTo);
+        if (swapByteOrder) result = swapByteOrder(result, sampleSizeTo, channelsTo);
         return result;
     }
 

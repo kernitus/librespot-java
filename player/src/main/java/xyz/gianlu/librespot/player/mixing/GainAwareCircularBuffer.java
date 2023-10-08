@@ -45,7 +45,7 @@ class GainAwareCircularBuffer extends CircularBuffer {
             int dest = off;
             for (int i = 0; i < len; i += 2, dest += 2) {
                 int val = (short) ((readInternal() & 0xFF) | ((readInternal() & 0xFF) << 8));
-                val *= gain;
+                val = (int) ((float) val * gain);
                 writeToArray(val, b, dest);
             }
 

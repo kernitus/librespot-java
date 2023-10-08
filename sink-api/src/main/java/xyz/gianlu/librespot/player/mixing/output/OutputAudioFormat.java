@@ -20,7 +20,7 @@ package xyz.gianlu.librespot.player.mixing.output;
  * @author devgianlu
  */
 public final class OutputAudioFormat {
-    public static final OutputAudioFormat DEFAULT_FORMAT = new OutputAudioFormat(44100, 16, 2, true, false);
+    public static final OutputAudioFormat DEFAULT_FORMAT = new OutputAudioFormat(44100, 16, 2, true, true);
     private final String encoding;
     private final float sampleRate;
     private final int sampleSizeInBits;
