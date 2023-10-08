@@ -43,8 +43,14 @@ public class RateLimitedOutputStream extends OutputStream {
         final int toWrite = (int) Math.min(length, byteBudget);
         //LOGGER.debug("Writing " + toWrite + " bytes");
         stream.write(bytes, offset, toWrite);
-        // TODO deal with this variable overflowing
         bytesWritten += toWrite;
+
+        // Avoid overflow, although at 44.1KHz 2-channel S16LE
+        // this would probably take about a millennium
+        if (bytesWritten >= 1000000000000L) {
+            bytesWritten -= 1000000000000L;
+            startTime += (long) (1000000000000L / bytesPerMillisecond);
+        }
 
         if (length > byteBudget) {
             // Wait to write the rest
