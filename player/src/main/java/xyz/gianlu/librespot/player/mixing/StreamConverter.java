@@ -39,10 +39,8 @@ public final class StreamConverter extends OutputStream {
     }
 
     public static boolean canConvert(@NotNull OutputAudioFormat from, @NotNull OutputAudioFormat to) {
-        if (from.isBigEndian() || to.isBigEndian()) return true;
-
         if (from.matches(to)) return true;
-        if (from.getEncoding() != to.getEncoding()) return false;
+        if (!from.getEncoding().equals(to.getEncoding())) return false;
         return from.getSampleRate() == to.getSampleRate();
     }
 
@@ -107,25 +105,21 @@ public final class StreamConverter extends OutputStream {
         }
     }
 
-    private byte[] swapByteOrder(byte[] bytes, int sampleSizeInBytes, int channels) {
-        if (sampleSizeInBytes % 2 != 0 || channels % 2 != 0) {
-            throw new IllegalArgumentException("Sample size and channel count must be even.");
+    private byte[] swapByteOrder(byte[] bytes, int sampleSizeInBits, int channels) {
+        int sampleSizeInBytes = sampleSizeInBits / 8;
+        int length = bytes.length;
+
+        // If the length is not a multiple of the combined sample size, discard leftover bytes
+        if (length % (sampleSizeInBytes * channels) != 0) {
+            length -= length % (sampleSizeInBytes * channels);
         }
 
-        int subSampleSizeInBytes = sampleSizeInBytes / channels;
-        int numSubSamples = bytes.length / subSampleSizeInBytes;
-        byte[] swapped = new byte[bytes.length];
+        byte[] swapped = new byte[length];
 
-        for (int i = 0; i < numSubSamples; i++) {
-            for (int j = 0; j < subSampleSizeInBytes; j++) {
-                swapped[i*subSampleSizeInBytes + j] = bytes[(i+1)*subSampleSizeInBytes - j - 1];
+        for (int i = 0; i < length; i += sampleSizeInBytes) {
+            for (int j = 0; j < sampleSizeInBytes; j++) {
+                swapped[i + j] = bytes[i + sampleSizeInBytes - 1 - j];
             }
-        }
-
-        // Handle the remaining bytes
-        int remainingBytesStartIndex = numSubSamples * subSampleSizeInBytes;
-        for (int i = 0; i < bytes.length - remainingBytesStartIndex; i++) {
-            swapped[remainingBytesStartIndex + i] = bytes[bytes.length - 1 - i];
         }
 
         return swapped;
